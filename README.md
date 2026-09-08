@@ -1,4 +1,4 @@
-# terraform-oci-schemagate
+# terraform-oci-schemagate-mcp
 
 Terraform module and OCI Resource Manager stack for
 [schemagate](https://github.com/ashishsinha1602/schemagate) — identity-scoped
@@ -27,8 +27,8 @@ Certified live on Oracle AI Database 26ai.
 
 ```hcl
 module "schemagate" {
-  source  = "ashishsinha1602/schemagate/oci"
-  version = "0.1.3"
+  source  = "ashishsinha1602/schemagate-mcp/oci"
+  version = "0.1.5"
 
   tenancy_ocid     = var.tenancy_ocid
   compartment_ocid = var.compartment_ocid
