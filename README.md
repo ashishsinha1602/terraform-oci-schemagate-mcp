@@ -28,7 +28,7 @@ Certified live on Oracle AI Database 26ai.
 ```hcl
 module "schemagate" {
   source  = "ashishsinha1602/schemagate/oci"
-  version = "0.1.2"
+  version = "0.1.3"
 
   tenancy_ocid     = var.tenancy_ocid
   compartment_ocid = var.compartment_ocid
