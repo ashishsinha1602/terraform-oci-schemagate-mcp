@@ -1,14 +1,14 @@
 # Resource Manager form definition (OCI Marketplace stack listing)
 title: schemagate MCP server
-description: Identity-scoped schema selection for text-to-SQL, served over MCP from an Always-Free-eligible VM against an Autonomous Database. Catalogued by OCI Generative AI with no API key.
+description: Identity-scoped schema selection for text-to-SQL, served over MCP from an Always-Free-eligible VM against an Autonomous Database. Catalogued by OCI Generative AI with no API key. The instance installs the library from PyPI (https://pypi.org/project/schemagate/); if you already have a database, `pip install schemagate` needs none of this.
 schemaVersion: 1.1.0
-version: "0.1.5"
+version: "0.1.9"
 locale: en
 variableGroups:
   - title: Where
     variables: [compartment_ocid, region]
   - title: Database
-    variables: [create_adb, adb_version, adb_admin_password, database_url]
+    variables: [create_adb, adb_version, adb_admin_password, adb_allowed_cidrs, database_url]
   - title: Cataloguing
     variables: [catalog_provider, catalog_model]
   - title: Instance
@@ -20,8 +20,8 @@ variables:
   adb_version:
     type: enum
     title: Autonomous Database version
-    description: Always Free offers 19c in every home region; 26ai and 23ai only in a few.
-    enum: ["19c", "26ai", "23ai"]
+    description: Autonomous Database version. 19c is the default because it is the one this stack has applied with, repeatedly. Always Free 26ai is offered in every commercial region except Bogota (BOG), Riyadh (RUH) and Singapore West (XSP) - set it if you want it.
+    enum: ["19c", "26ai"]
     default: "19c"
     visible: create_adb
   create_adb:
@@ -57,6 +57,13 @@ variables:
     title: Shape
     default: VM.Standard.E2.1.Micro
     dependsOn: { compartmentId: "${compartment_ocid}" }
+  adb_allowed_cidrs:
+    type: array
+    items: { type: string }
+    required: false
+    visible: create_adb
+    title: Public CIDRs allowed to reach the database this stack creates
+    description: Leave empty and the database is reachable over TLS with the ADMIN password only, which is fine for the throwaway demo. If you set it, include the instance's own public IP or the MCP server cannot connect.
   allowed_cidr: { type: string, required: true, title: CIDR allowed to reach the MCP endpoint (it has no auth of its own) }
   ssh_cidr: { type: string, required: true, title: CIDR allowed to SSH }
   instance_ocpus:
