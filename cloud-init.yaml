@@ -45,6 +45,8 @@ write_files:
       SCHEMAGATE_CREATE_ADB=${create_adb}
       SCHEMAGATE_ADB_DISPLAY_NAME=${adb_display_name}
       SCHEMAGATE_ADB_PASSWORD='${adb_admin_password}'
+      SCHEMAGATE_VERSION=${schemagate_version}
+      SCHEMAGATE_STUDIO_PORT=${studio_port}
   - path: /etc/schemagate/catalog.json
     content: |
       {"restrict": {}, "hint": {}, "describe": {}}
@@ -73,7 +75,20 @@ write_files:
       else
         extras="$extras,mcp"
       fi
-      echo "database URL scheme -> installing schemagate[$extras]"
+      # Pinned by default. An unpinned install means a release published
+      # after this stack was downloaded changes what boots, which is how a
+      # stack that worked last month starts failing for no visible reason.
+      # SCHEMAGATE_VERSION="" opts back into "whatever is newest".
+      # Written as an `if` and not `[ -n "$V" ] && spec=...` on purpose: that
+      # form is the last command in the script when the version is empty, so
+      # under `set -e` -- or as the exit status of the unit that runs this --
+      # an empty version would read as failure.
+      if [ -n "$SCHEMAGATE_VERSION" ]; then
+        spec="schemagate[$extras]==$SCHEMAGATE_VERSION"
+      else
+        spec="schemagate[$extras]"
+      fi
+      echo "database URL scheme -> installing $spec"
       # --no-compile is the difference between a usable first boot and an
       # unusable one on a 1-OCPU Always Free shape. Byte-compiling the OCI SDK
       # there costs minutes of pure CPU, and it buys nothing: Python compiles
@@ -81,7 +96,14 @@ write_files:
       # --prefer-binary so no driver is built from source; --no-cache-dir
       # because nothing here is installed twice.
       /opt/schemagate/bin/pip install --prefer-binary --no-compile --no-cache-dir \
-        --disable-pip-version-check "schemagate[$extras]"
+        --disable-pip-version-check "$spec" || {
+        # A pin that PyPI does not have yet would otherwise leave the machine
+        # with no schemagate at all and nothing saying why. Say so, then
+        # install the newest rather than booting into a dead endpoint.
+        echo "WARNING: $spec is not installable; falling back to the newest release" >&2
+        /opt/schemagate/bin/pip install --prefer-binary --no-compile --no-cache-dir \
+          --disable-pip-version-check "schemagate[$extras]"
+      }
       # resolve-db.sh waits on this rather than on `import oci`, which would
       # start succeeding part-way through the install above.
       touch /opt/schemagate/.ready
@@ -278,6 +300,32 @@ write_files:
       User=opc
       [Install]
       WantedBy=multi-user.target
+  - path: /etc/systemd/system/schemagate-studio.service
+    content: |
+      [Unit]
+      Description=schemagate Studio
+      After=network-online.target schemagate-resolve-db.service
+      Wants=network-online.target schemagate-resolve-db.service
+      [Service]
+      EnvironmentFile=/etc/schemagate.env
+      # 127.0.0.1, deliberately. The Studio has no login: anyone who can reach
+      # it can read the whole schema, and -- were connecting left on -- hand it
+      # a URL and have this instance open a database only it can see. Bound to
+      # loopback it is reachable exactly by whoever can already SSH in:
+      #     ssh -L 8770:127.0.0.1:8770 opc@<ip>
+      # then http://127.0.0.1:8770 in your own browser. `--no-connect` is
+      # belt and braces: the default already refuses off-loopback binds, and
+      # this says so out loud for anyone who edits the address.
+      ExecStart=/bin/sh -c 'exec /opt/schemagate/bin/schemagate studio \
+        --url "$SCHEMAGATE_DATABASE_URL" \
+        --host 127.0.0.1 --port "$SCHEMAGATE_STUDIO_PORT" \
+        --no-browser --no-connect \
+        --config /etc/schemagate/catalog.json'
+      Restart=always
+      RestartSec=5
+      User=opc
+      [Install]
+      WantedBy=multi-user.target
 runcmd:
   # The database lookup goes first, not last. Oracle takes several minutes to
   # provision an Autonomous Database, and none of that has to wait for pip:
@@ -301,6 +349,7 @@ runcmd:
   # the whole install running alongside it. --no-block so a database that is
   # still provisioning does not hold cloud-init open.
   - systemctl enable schemagate
+  - systemctl enable schemagate-studio
   - systemctl start --no-block schemagate
   # Then cataloguing, behind the endpoint -- its retry loop would otherwise
   # hold the MCP server down for twelve minutes waiting on IAM propagation.

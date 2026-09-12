@@ -6,6 +6,13 @@ output "mcp_url" {
 output "ssh" {
   value = "ssh opc@${oci_core_public_ip.mcp.ip_address}"
 }
+output "studio" {
+  # No interpolation here: Terraform rejects a variable in an output's
+  # description, and `terraform init` fails before it reads anything else --
+  # so the whole downloaded stack refuses to start. The port is in the value.
+  description = "The Studio runs on the instance's loopback. Run this, then open the same port on localhost."
+  value       = "ssh -L ${var.studio_port}:127.0.0.1:${var.studio_port} opc@${oci_core_public_ip.mcp.ip_address}"
+}
 output "next_step" {
   value = "pip install schemagate  •  https://pypi.org/project/schemagate/"
 }

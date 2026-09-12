@@ -117,6 +117,12 @@ variable "ssh_cidr" {
     error_message = "Refusing 0.0.0.0/0 for SSH."
   }
 }
+variable "studio_port" {
+  description = "Port the Studio listens on, on the instance's loopback. Reach it with: ssh -L 8770:127.0.0.1:8770 opc@<ip>"
+  type        = number
+  default     = 8770
+}
+
 variable "mcp_port" {
   type    = number
   default = 8765
@@ -126,4 +132,15 @@ variable "adb_allowed_cidrs" {
   type        = list(string)
   default     = []
   description = "Optional access-control list for the database this stack creates: public CIDRs allowed to connect. Empty means reachable from the internet with TLS and the ADMIN password only -- fine for the throwaway demo database, not for your own data. If you set it, include the instance's own public IP or the MCP server will not be able to connect."
+}
+
+variable "schemagate_version" {
+  type        = string
+  default     = "0.1.17"
+  description = "schemagate version the instance installs. Pinned so a stack that worked when you downloaded it still works later: the zip and the PyPI release are cut together, so this is the version this stack was actually tested against. Set it to \"\" to take whatever is newest on PyPI instead."
+
+  validation {
+    condition     = var.schemagate_version == "" || can(regex("^[0-9]+\\.[0-9]+(\\.[0-9]+)?([a-z0-9.]*)$", var.schemagate_version))
+    error_message = "Give a version like 0.1.17, or \"\" for the newest on PyPI."
+  }
 }

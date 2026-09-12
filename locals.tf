@@ -36,6 +36,7 @@ locals {
     database_url       = local.database_url
     connect_args       = local.connect_args
     mcp_port           = var.mcp_port
+    studio_port        = var.studio_port
     catalog_provider   = var.catalog_provider
     catalog_model      = var.catalog_model
     compartment_ocid   = var.compartment_ocid
@@ -43,5 +44,6 @@ locals {
     create_adb         = var.create_adb ? "true" : "false"
     adb_display_name   = local.adb_display_name
     adb_admin_password = var.adb_admin_password
+    schemagate_version = var.schemagate_version
   })
 }
